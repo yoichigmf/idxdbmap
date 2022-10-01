@@ -279,6 +279,8 @@ const base_maps = {
     }
 };
 
+let   csvstore = "tempdata";
+
  //  function of file select handler
 function handleFileSelect(evt) {
 var file = evt.target.files[0]; // Read first selected file
@@ -344,7 +346,7 @@ fileReader.onload = () => {
 
   console.log( items.length + "件のデータを読み込みました。");
 
-  attributewrite( "tempdata", "polygon_uuid", items )
+  attributewrite( csvstore, "polygon_uuid", items )
 } 
 
 
@@ -370,7 +372,7 @@ function  attributewrite( storename, keyfield, atr ){
            var trans = db.transaction(storename, 'readwrite');
            var store = trans.objectStore(storename);
 
-           var count = 1;
+           //var count = 1;
            for (data of atr) {
 
             var putReq ;
@@ -379,9 +381,9 @@ function  attributewrite( storename, keyfield, atr ){
                    putReq = store.put(data);
 
             }
-            console.log('log  ' + count);
+            //console.log('log  ' + count);
 
-            count = count + 1;
+           // count = count + 1;
            }
 
           //var putReq = store.put(data);
@@ -586,10 +588,130 @@ function handleClick( cb ) {
 //    feature collection from flatgeobuf
 var fc = {type: "FeatureCollection", features: []};
 
-function ConnectClick(){
+async function ConnectClick(){
     console.log('connect click!' );
 
+   
+
+    const openRequest  = indexedDB.open( csvstore );
+
     
+
+    
+     openRequest.onupgradeneeded = function() {
+  // クライアントがデータベースを持っていない場合にトリガーされます
+  // ...初期化を行います...
+      console.log("db is not exists " + csvstore);
+      return;
+      };
+
+      
+     openRequest.onerror = function() {
+            console.error("Error", openResult.error);
+
+            return;
+     };
+
+
+    openRequest.onsuccess = function() {
+
+        let db = openRequest.result;
+        let transaction = db.transaction(csvstore, "readonly");
+
+        let csvdata = transaction.objectStore(csvstore);
+
+        var farr = fc.features;
+
+        fc = {type: "FeatureCollection", features: []};
+
+        console.log( "start transaction size " +  fc.features.length);
+        //var  fgarray = [];
+
+        for ( itemf of farr){
+
+            let fkey = itemf.properties["polygon_uuid"];
+            
+
+            let  resultv = csvdata.get(fkey);
+
+            resultv.onsuccess = function() {
+                //console.log( resultv.result );
+
+                itemf.properties[ "test"] = resultv.result["test"];
+
+                //fc.features[icount] = itemf;
+                //console.log( itemf.properties["test"] );
+                //fgarray.push( itemf );
+
+ 
+
+                fc.features.push(itemf);
+
+
+            }
+
+        transaction.oncomplete = function() {
+
+            console.log( "complete transaction size " +  fc.features.length);
+           // fc.features = fgarray;
+           // let  fc2 = fc;
+
+           // fc2.features = fgarray;
+
+           if (map.getLayer('fude-fill')) {
+                     	map.removeLayer('fude-fill')
+                  }
+                  
+            if (map.getLayer('fude-line')) {
+                     	map.removeLayer('fude-line')
+                  }
+   
+             map.removeSource("fude_turuoka");
+             map.addSource("fude_turuoka", {
+                  type: "geojson",
+                  data: fc,
+                  });
+                 
+             fudelayer_reset();
+
+             //map.getSource("fude_turuoka").setData(fc);
+
+
+      
+
+        } 
+
+            //console.log( adddata.test);
+
+       // console.log('key ' + fkey );
+      // fudelayer_reset();
+
+        }
+    }
+  // fudelayer_reset();
+
+
+}
+
+function fudelayer_reset(){
+    if (map.getLayer('fude-fill')) {
+                     	map.removeLayer('fude-fill')
+                  }
+                  
+    if (map.getLayer('fude-line')) {
+                     	map.removeLayer('fude-line')
+                  }
+                  
+
+            //ms.setData( fc );
+
+     add_fudelayer( map );
+
+    map.setLayoutProperty('fude-fill', 'visibility', 'visible');
+
+    map.setLayoutProperty('fude-line', 'visibility', 'visible');
+
+
 }
 
 function BrowseClick(){
@@ -604,7 +726,7 @@ function SaveClick(){
     //console.log(svtext );
 
     storeName = "test";
-    const db = indexedDB.open("test")
+    const db = indexedDB.open("test");
       db.onupgradeneeded = (event) => {
            event.target.result.createObjectStore(storeName, {keyPath: "sourcename"})
       }
@@ -699,6 +821,9 @@ async function loadfgb(){
                   type: "geojson",
                   data: fc,
                   });
+
+            add_fudelayer( map );
+/*
             map.addLayer({
                 id: "fude-fill",
                 type: "fill",
@@ -719,6 +844,7 @@ async function loadfgb(){
                   "fill-opacity": 0.5,
                 },
             });
+
             map.addLayer({
                 id: "fude-line",
                 type: "line",
@@ -729,12 +855,47 @@ async function loadfgb(){
                   "line-width": 1,
                 },
             });
+*/
+
         
         });
     }
 
 
+function add_fudelayer( mmap){
+    mmap.addLayer({
+                id: "fude-fill",
+                type: "fill",
+                source: "fude_turuoka",
+                paint: {
 
+                  "fill-color": {
+                    property: 'land_type',
+                    type: 'categorical',
+                    stops: [
+                               [200, '#d2b00f'],
+                               [100, '#60932a'],
+                           ]
+                  },
+                  
+                  
+                 
+                  "fill-opacity": 0.5,
+                },
+            });
+
+    mmap.addLayer({
+                id: "fude-line",
+                type: "line",
+                source: "fude_turuoka",
+                paint: {
+                  "line-color": "#888888",
+                  "line-opacity": 0.9,
+                  "line-width": 1,
+                },
+            });
+
+}
         
         
 // When a click event occurs on a feature in the places layer, open a popup at the
