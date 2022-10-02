@@ -5,6 +5,7 @@
     <link href="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
     <script src="https://unpkg.com/flatgeobuf@3.22.0/dist/flatgeobuf-geojson.min.js"></script>
+    <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
     <style>
         body { margin:0; padding:0; }
 
@@ -708,6 +709,44 @@ async function ConnectClick(){
 
         let csvdata = transaction.objectStore(csvstore);
 
+
+        csvdata.getAll().onsuccess = function(event) {
+
+            const rows = event.target.result;
+
+            var np = {};
+
+            for ( rw in rows ){
+                np[rows[rw]["polygon_uuid"]] = rows[rw];
+            }
+
+
+            var farr = fc.features;
+            nfc = {type: "FeatureCollection", features: []};
+
+            console.log( "start transaction size " +  nfc.features.length);
+
+            for ( itemf of farr){
+                let fkey = itemf.properties["polygon_uuid"];
+
+                let  resultv = np[fkey];
+                
+                itemf.properties[ "test"] = resultv["test"];
+                //console.log( fkey);
+
+                //nk = itemf.properties["polygon_uuid"];
+                //console.log( nk );
+
+                nfc.features.push(itemf);
+
+            }
+
+        }
+
+
+/*
+
+
         var farr = fc.features;
 
         nfc = {type: "FeatureCollection", features: []};
@@ -744,25 +783,12 @@ async function ConnectClick(){
 
 
             }
+            */
 
         transaction.oncomplete = function() {
 
             console.log( "complete transaction size " +  nfc.features.length);
-           // fc.features = fgarray;
-           // let  fc2 = fc;
-
-           // fc2.features = fgarray;
-/*
-           if (map.getLayer('fude-fill')) {
-                     	map.removeLayer('fude-fill')
-                  }
-                  
-            if (map.getLayer('fude-line')) {
-                     	map.removeLayer('fude-line')
-                  }
-
-                  */
-   
+ 
 
              if ( map.getSource("fude_turuoka_new")){
                       map.removeSource("fude_turuoka_new");
@@ -791,10 +817,7 @@ async function ConnectClick(){
 
         }
     }
-  // fudelayer_reset();
-
-
-}
+ 
 
 
 function fudelayer_reset(source_id, nm ){
