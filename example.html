@@ -88,6 +88,33 @@ top: 180px;
 left: 20px;
 z-index:255;
 }
+#figdownload {
+position: absolute;
+top: 200px;
+left: 20px;
+z-index:255;
+}
+
+#turuokachk{
+        position: absolute;
+        top: 220px;
+        left: 20px;
+        background: rgba(255, 255, 255, 0);
+        z-index:255;
+        font-size: 16px;
+        padding: 4px 8px;
+      }
+
+
+#resultchk{
+        position: absolute;
+        top: 240px;
+        left: 20px;
+        background: rgba(255, 255, 255, 0);
+        z-index:255;
+        font-size: 16px;
+        padding: 4px 8px;
+      }
 
 
 </style>
@@ -212,6 +239,19 @@ z-index:255;
             <input type="button"  id="figbrowse" name="fbrowse" onclick='BrowseClick();'  value="browse" />
 
             <input type="button"  id="figconnect" name="fconnect" onclick='ConnectClick();'  value="connect" />
+
+            <input type="button"  id="figdownload" name="fdownload" onclick='DownloadClick();'  value="download" />
+
+            
+            <div id="turuokachk">
+                <label><input type='checkbox' onclick='turuokaChk(this);'  checked="checked">鶴岡市</label>
+            </div>
+            <div id="resultchk">
+                <label><input type='checkbox' onclick='turuokanewChk(this);'>結合結果</label>
+            </div>
+
+
+
      
             <div
             class="sidebar-toggle rounded-rect left"
@@ -222,6 +262,7 @@ z-index:255;
 
             </div>
         </div>
+
 
 
         <div id="right" class="sidebar flex-center right collapsed">
@@ -538,6 +579,49 @@ function  getTablerows( pagenumber, rowsinpage, lproperties ){
 const  itemperpage = 20;
 
 
+function turuokaChk( cb ){
+    if (cb.checked){
+        map.setLayoutProperty("fude-fill", 'visibility', 'visible');
+    }
+    else {
+        map.setLayoutProperty("fude-fill", 'visibility', 'none');
+    }
+  
+
+}
+
+function turuokanewChk( cb ){
+    if (cb.checked){
+        map.setLayoutProperty("new_fude-fill", 'visibility', 'visible');
+    }
+    else {
+        map.setLayoutProperty("new_fude-fill", 'visibility', 'none');
+    }
+  
+}
+
+function DownloadClick() {
+    
+ const json = JSON.stringify(nfc);
+  const blob = new Blob([json], { type: 'application/json' });
+ 
+  // ダミーの a 要素を生成して body 要素の最後に追加
+  let dummy_a_el = document.createElement('a');
+  document.body.appendChild(dummy_a_el);
+ 
+  // a 要素の href 属性に Object URL をセット
+  dummy_a_el.href = window.URL.createObjectURL(blob);
+ 
+  // a 要素の download 属性にファイル名をセット
+  dummy_a_el.download = 'turuoka.json';
+ 
+  // 疑似的に a 要素をクリックさせる
+  dummy_a_el.click();
+ 
+  // a 要素を body 要素から削除
+  document.body.removeChild(dummy_a_el);
+
+}
 
 //    table display check
 function handleClick( cb ) {
@@ -588,6 +672,10 @@ function handleClick( cb ) {
 //    feature collection from flatgeobuf
 var fc = {type: "FeatureCollection", features: []};
 
+//  feature collection for new data
+var nfc = {type: "FeatureCollection", features: []};
+
+
 async function ConnectClick(){
     console.log('connect click!' );
 
@@ -613,7 +701,7 @@ async function ConnectClick(){
      };
 
 
-    openRequest.onsuccess = function() {
+    openRequest.onsuccess = async function() {
 
         let db = openRequest.result;
         let transaction = db.transaction(csvstore, "readonly");
@@ -622,42 +710,49 @@ async function ConnectClick(){
 
         var farr = fc.features;
 
-        fc = {type: "FeatureCollection", features: []};
+        nfc = {type: "FeatureCollection", features: []};
 
-        console.log( "start transaction size " +  fc.features.length);
+        console.log( "start transaction size " +  nfc.features.length);
         //var  fgarray = [];
 
         for ( itemf of farr){
 
             let fkey = itemf.properties["polygon_uuid"];
             
+            nitem = itemf;
 
-            let  resultv = csvdata.get(fkey);
+            let  resultv = await csvdata.get(fkey);
 
-            resultv.onsuccess = function() {
+            resultv.onsuccess = function( ) {
                 //console.log( resultv.result );
 
-                itemf.properties[ "test"] = resultv.result["test"];
 
+
+                nitem.properties[ "test"] = resultv.result["test"];
+                console.log( fkey);
                 //fc.features[icount] = itemf;
                 //console.log( itemf.properties["test"] );
                 //fgarray.push( itemf );
 
- 
+                nk = itemf.properties["polygon_uuid"];
+                console.log( nk );
 
-                fc.features.push(itemf);
+                nnk = nitem.properties["polygon_uuid"];
+                console.log( nnk );
+
+                nfc.features.push(nitem);
 
 
             }
 
         transaction.oncomplete = function() {
 
-            console.log( "complete transaction size " +  fc.features.length);
+            console.log( "complete transaction size " +  nfc.features.length);
            // fc.features = fgarray;
            // let  fc2 = fc;
 
            // fc2.features = fgarray;
-
+/*
            if (map.getLayer('fude-fill')) {
                      	map.removeLayer('fude-fill')
                   }
@@ -665,14 +760,22 @@ async function ConnectClick(){
             if (map.getLayer('fude-line')) {
                      	map.removeLayer('fude-line')
                   }
+
+                  */
    
-             map.removeSource("fude_turuoka");
-             map.addSource("fude_turuoka", {
+
+             if ( map.getSource("fude_turuoka_new")){
+                      map.removeSource("fude_turuoka_new");
+             }
+             
+             map.addSource("fude_turuoka_new", {
                   type: "geojson",
-                  data: fc,
+                  data: nfc,
                   });
                  
-             fudelayer_reset();
+            //let nsource = map.getSource("fude_turuoka_new");
+            fudelayer_reset("fude_turuoka_new", "new_fude");
+            // fudelayer_reset();
 
              //map.getSource("fude_turuoka").setData(fc);
 
@@ -693,23 +796,29 @@ async function ConnectClick(){
 
 }
 
-function fudelayer_reset(){
-    if (map.getLayer('fude-fill')) {
-                     	map.removeLayer('fude-fill')
+
+function fudelayer_reset(source_id, nm ){
+
+    
+    let fill_id = nm + "-fill";
+    let line_id = nm + "-line";
+
+    if (map.getLayer(fill_id)) {
+                     	map.removeLayer(fill_id)
                   }
                   
-    if (map.getLayer('fude-line')) {
-                     	map.removeLayer('fude-line')
+    if (map.getLayer(line_id)) {
+                     	map.removeLayer(line_id)
                   }
                   
 
             //ms.setData( fc );
 
-     add_fudelayer( map );
+     add_fudelayer( map , source_id, nm );
 
-    map.setLayoutProperty('fude-fill', 'visibility', 'visible');
+    map.setLayoutProperty(fill_id, 'visibility', 'visible');
 
-    map.setLayoutProperty('fude-line', 'visibility', 'visible');
+    map.setLayoutProperty(line_id, 'visibility', 'visible');
 
 
 }
@@ -822,51 +931,22 @@ async function loadfgb(){
                   data: fc,
                   });
 
-            add_fudelayer( map );
-/*
-            map.addLayer({
-                id: "fude-fill",
-                type: "fill",
-                source: "fude_turuoka",
-                paint: {
-
-                  "fill-color": {
-                    property: 'land_type',
-                    type: 'categorical',
-                    stops: [
-                               [200, '#d2b00f'],
-                               [100, '#60932a'],
-                           ]
-                  },
-                  
-                  
-                 
-                  "fill-opacity": 0.5,
-                },
-            });
-
-            map.addLayer({
-                id: "fude-line",
-                type: "line",
-                source: "fude_turuoka",
-                paint: {
-                  "line-color": "#888888",
-                  "line-opacity": 0.9,
-                  "line-width": 1,
-                },
-            });
-*/
+            add_fudelayer( map, "fude_turuoka", "fude" );
 
         
         });
     }
 
 
-function add_fudelayer( mmap){
+function add_fudelayer( mmap, source, nm ){
+
+    let fill_id = nm + "-fill";
+    let line_id = nm + "-line";
+
     mmap.addLayer({
-                id: "fude-fill",
+                id: fill_id,
                 type: "fill",
-                source: "fude_turuoka",
+                source: source,
                 paint: {
 
                   "fill-color": {
@@ -885,9 +965,9 @@ function add_fudelayer( mmap){
             });
 
     mmap.addLayer({
-                id: "fude-line",
+                id: line_id,
                 type: "line",
-                source: "fude_turuoka",
+                source: source,
                 paint: {
                   "line-color": "#888888",
                   "line-opacity": 0.9,
@@ -895,17 +975,29 @@ function add_fudelayer( mmap){
                 },
             });
 
+    mmap.on('click', fill_id, function(e){
+
+              clickLayer(e);
+     } );
+
 }
         
-        
-// When a click event occurs on a feature in the places layer, open a popup at the
-// location of the feature, with description HTML from its properties.
-map.on('click', 'fude-fill', function (e) {
-            var coordinates = e.features[0].geometry.coordinates.slice();
+    
+/*
+map.on('click', 'fude-fill', function(e){
+
+     clickLayer(e);
+} );
+*/
+
+
+function  clickLayer(e ){
+
+var coordinates = e.features[0].geometry.coordinates.slice();
            // var description = e.features[0].properties["history"];
 
  
-        console.log('A click event has occurred at ' + e.lngLat);
+console.log('A click event has occurred at ' + e.lngLat);
 
         
 var tghtml = "<table><tr><TH>項目</TH><TH>値</TH></tr>";
@@ -915,21 +1007,13 @@ for ( var key in e.features[0].properties ){
 
 tghtml = tghtml + "</table>";
 
-    //    console.log(e.features[0].properties["history"]);
- // Ensure that if the map is zoomed out such that multiple
- // copies of the feature are visible, the popup appears
- // over the copy being pointed to.
- //while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
- //coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
- //}
+ 
   
         new maplibregl.Popup()
                 .setLngLat(e.lngLat)
                 .setHTML(tghtml)
                 .addTo(map);
-    });
-        
-
+}
 
 document
      .getElementById('file')
